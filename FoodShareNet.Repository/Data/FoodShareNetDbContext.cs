@@ -55,9 +55,9 @@ public class FoodShareNetDbContext : DbContext
         );
 
         modelBuilder.Entity<Product>().HasData(
-            new Product { Id = 1, Name = "Tomatoes" },
-            new Product { Id = 2, Name = "Potatoes" },
-            new Product { Id = 3, Name = "Meat" }
+            new Product { Id = 1, Name = "Tomatoes" , Image = " " },
+            new Product { Id = 2, Name = "Potatoes" , Image = " " },
+            new Product { Id = 3, Name = "Meat" , Image = " " }
         );
 
         modelBuilder.Entity<Courier>()

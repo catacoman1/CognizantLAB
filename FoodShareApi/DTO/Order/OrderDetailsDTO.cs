@@ -9,4 +9,5 @@ public class OrderDetailsDTO
     public DateTime CreationDate { get; set; }
     public DateTime? DeliveryDate { get; set; } // Nullable in case the delivery date is not yet set
     public int OrderStatusId { get; set; }
+    public int Quantity { get; set; }
 }

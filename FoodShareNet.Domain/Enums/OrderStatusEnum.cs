@@ -1,6 +1,6 @@
 namespace FoodShareNet.Domain.Enums;
 
-public enum OrderStatus : int
+public enum OrderStatusEnum : int
 {
     Unconfirmed = 1,
     Confirmed = 2,

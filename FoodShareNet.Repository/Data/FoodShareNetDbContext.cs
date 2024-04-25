@@ -1,9 +1,9 @@
 using FoodShareNet.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-
+using FoodShareNet.Application.Interfaces;
 namespace FoodShareNet.Repository.Data;
 
-public class FoodShareNetDbContext : DbContext
+public class FoodShareNetDbContext : DbContext, IFoodShareDbContext
 {
     public FoodShareNetDbContext(DbContextOptions<FoodShareNetDbContext> options) : base(options)
     {

@@ -107,30 +107,35 @@ public class DonationController : ControllerBase
         return Ok(donationEntityDTO);
     }
 
-    // [ProducesResponseType(StatusCodes.Status200OK)]
-    // [ProducesResponseType(StatusCodes.Status404NotFound)]
-    // [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    // [HttpGet()]
-    // public async Task<ActionResult<IList<DonationDetailDTO>>> GetDonationsByCityId(int cityId)
-    // {
-    //     var donationDTO = await _context.Donations
-    //         .Select(d => new DonationDTO
-    //         {
-    //             Id = d.Id,
-    //             Product = d.Product.Name,
-    //             Quantity = d.Quantity,
-    //             ExpirationDate = d.ExpirationDate,
-    //             Status = d.Status.Name
-    //         })
-    //         .FirstOrDefaultAsync(d => d. == id);
-    //
-    //     if (donationDTO == null)
-    //     {
-    //         return NotFound();
-    //     }
-    //
-    //     return Ok(donationDTO);
-    // }
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    [HttpGet()]
+    public async Task<ActionResult<IList<DonationDetailDTO>>> GetDonationsByCityId(int cityId)
+    {
+        var donationDTO = await _context.Donations
+            .Include(d => d.Donor)
+            .ThenInclude(donor => donor.City)
+            .Include(d => d.Product)
+            .Include(d => d.Status)
+            .Where(d => d.Donor.CityId == cityId)
+            .Select(d => new DonationDetailDTO
+            {
+                Id = d.Id,
+                Product = d.Product.Name,
+                Quantity = d.Quantity,
+                ExpirationDate = d.ExpirationDate,
+                Status = d.Status.Name
+            })
+            .ToListAsync();
+    
+        if (!donationDTO.Any())
+        {
+            return NotFound();
+        }
+    
+        return Ok(donationDTO);
+    }
     
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

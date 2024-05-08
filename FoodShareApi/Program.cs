@@ -6,6 +6,11 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IBeneficiaryService, BeneficiaryService>();
+builder.Services.AddScoped<ICourierService, CourierService>();
+builder.Services.AddScoped<IDonationService, DonationService>();
+builder.Services.AddScoped<IDonorService, DonorService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IFoodShareDbContext, FoodShareNetDbContext>();
 
 builder.Services.AddDbContext<FoodShareNetDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection" +

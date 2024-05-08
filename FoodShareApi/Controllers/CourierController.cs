@@ -1,5 +1,6 @@
 using FoodShareApi.DTO.Beneficiary;
 using FoodShareApi.DTO.Courier;
+using FoodShareNet.Application.Interfaces;
 using FoodShareNet.Domain.Entities;
 using FoodShareNet.Repository.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -11,13 +12,13 @@ namespace FoodShareApi.Controllers;
 [Route("api/[controller]/[action]")]
 public class CourierController : ControllerBase
 {
+    private readonly ICourierService _courierService;
 
-    private readonly FoodShareNetDbContext _context;
-    public CourierController(FoodShareNetDbContext context)
+    public CourierController(ICourierService courierService)
     {
-        _context = context;
+        _courierService = courierService;
     }
-    
+
     [ProducesResponseType(typeof(IList<CourierDTO>),
         StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -25,41 +26,49 @@ public class CourierController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IList<CourierDTO>>> GetAllAsync()
     {
-        var couriers = await _context.Couriers
-            .Select(c => new CourierDTO()
-            {
-                    Id = c.Id,
-                    Name = c.Name,
-                    Price = c.Price
+       
+            var couriers = await _courierService.GetAllCouriersAsync();
 
-            }).ToListAsync();
-        return Ok(couriers);
+            var courierDTOs = new List<CourierDTO>();
+            foreach (var courier in couriers)
+            {
+                courierDTOs.Add(new CourierDTO
+                {
+                    Id = courier.Id,
+                    Name = courier.Name,
+                    Price = courier.Price
+                });
+            }
+
+            return Ok(courierDTOs);
+        
     }
-    
+
     [ProducesResponseType(typeof(CourierDTO),
         StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet]
-    public async Task<ActionResult<CourierDTO>> GetAsync(int? id)
+    public async Task<ActionResult<CourierDTO>> GetAsync(int id)
     {
-        var courierDTO = await _context.Couriers
-            .Select(c => new CourierDTO()
-            {
-               Id = c.Id,
-               Name = c.Name,
-               Price = c.Price
-            })
-            .FirstOrDefaultAsync(c => c.Id == id);
+        var courier = await _courierService.GetCourierAsync(id);
 
-        if (courierDTO == null)
+        if (courier == null)
         {
             return NotFound();
         }
 
+        var courierDTO = new CourierDTO
+        {
+            Id = courier.Id,
+            Name = courier.Name,
+            Price = courier.Price
+        };
+
         return Ok(courierDTO);
     }
-    
+
+
     [ProducesResponseType(typeof(CourierDetailDTO),
         StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -72,25 +81,24 @@ public class CourierController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var courier = new Courier()
+        var courier = new Courier
         {
             Name = createCourierDto.Name,
             Price = createCourierDto.Price
         };
 
-        _context.Add(courier);
-        await _context.SaveChangesAsync();
+        var createdCourier = await _courierService.CreateCourierAsync(courier);
 
-        var courierEntityDTO = new CourierDetailDTO()
+        var courierEntityDTO = new CourierDetailDTO
         {
-            Id = courier.Id,
-            Name = courier.Name,
-            Price = courier.Price
+            Id = createdCourier.Id,
+            Name = createdCourier.Name,
+            Price = createdCourier.Price
         };
 
         return Ok(courierEntityDTO);
     }
-    
+
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -100,47 +108,35 @@ public class CourierController : ControllerBase
     {
         if (id != editCourierDto.Id)
         {
-            return BadRequest("Mismatched Courier DTO");
-            
+            return BadRequest();
         }
 
-        var courier = await _context.Couriers
-            .FirstOrDefaultAsync(c => c.Id == editCourierDto.Id);
+        var updated = await _courierService.UpdateCourierAsync(id, new Courier
+        {
+            Name = editCourierDto.Name,
+            Price = editCourierDto.Price
+        });
 
-        if ( courier == null)
+        if (!updated)
         {
             return NotFound();
-            
         }
 
-        courier.Name = editCourierDto.Name;
-        courier.Price = editCourierDto.Price;
-
-        await _context.SaveChangesAsync();
-
         return NoContent();
-
-
-
     }
-    
+
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpDelete]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var courier = await _context.Couriers.FindAsync(id);
-
-        if (courier == null)
+        var deleted = await _courierService.DeleteCourierAsync(id);
+        if (!deleted)
         {
             return NotFound();
         }
 
-        _context.Couriers.Remove(courier);
-        await _context.SaveChangesAsync();
         return NoContent();
     }
-    
-
 }

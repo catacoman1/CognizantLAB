@@ -1,6 +1,7 @@
 using FoodShareApi.DTO.Beneficiary;
 using FoodShareApi.DTO.Donation;
 using FoodShareApi.DTO.Donor;
+using FoodShareNet.Application.Interfaces;
 using FoodShareNet.Domain.Entities;
 using FoodShareNet.Repository.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -12,22 +13,21 @@ namespace FoodShareApi.Controllers;
 [Route("api/[controller]/[action]")]
 public class DonorController : ControllerBase
 {
-    private readonly FoodShareNetDbContext _context;
-    public DonorController(FoodShareNetDbContext context)
+    private readonly IDonorService _donorService;
+    public DonorController(IDonorService donorService)
     {
-        _context = context;
+        _donorService = donorService;
     }
 
     [ProducesResponseType(type: typeof(List<DonorDTO>) ,StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet]
-    public async Task<ActionResult<IList<DonorDTO>>> GetAllAsync()
+    public async Task<ActionResult<List<DonorDTO>>> GetAllAsync()
     {
-        var donors = await _context.Donors
-            .Include(d => d.Donations)
-            .Include(d => d.City)
-            .Select(d => new DonorDTO
+        
+            var donors = await _donorService.GetAllDonorsAsync();
+            var donorDTOs = donors.Select(d => new DonorDTO
             {
                 Id = d.Id,
                 Name = d.Name,
@@ -41,26 +41,33 @@ public class DonorController : ControllerBase
                     ExpirationDate = dn.ExpirationDate,
                     Status = dn.Status.Name
                 }).ToList()
+            }).ToList();
+            return Ok(donorDTOs);
+        }
 
-            }).ToListAsync();
-        return Ok(donors);
-    }
+    
     
     
     [ProducesResponseType(type: typeof(List<DonorDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet()]
-    public async Task<ActionResult<DonorDTO>> GetAsync(int id) 
+    public async Task<ActionResult<DonorDTO>> GetAsync(int id)
     {
-        var donorDTO = await _context.Donors
-            .Select(d => new DonorDTO()
+       
+            var donor = await _donorService.GetDonorAsync(id);
+            if (donor == null)
             {
-                Id = d.Id,
-                Name = d.Name,
-                CityName = d.City.Name,
-                Address = d.Address,
-                Donations = d.Donations.Select(dn => new DonationDTO
+                return NotFound();
+            }
+
+            var donorDTO = new DonorDTO()
+            {
+                Id = donor.Id,
+                Name = donor.Name,
+                CityName = donor.City.Name,
+                Address = donor.Address,
+                Donations = donor.Donations.Select(dn => new DonationDTO
                 {
                     Id = dn.Id,
                     Product = dn.Product.Name,
@@ -68,15 +75,11 @@ public class DonorController : ControllerBase
                     ExpirationDate = dn.ExpirationDate,
                     Status = dn.Status.Name
                 }).ToList()
-            })
-            .FirstOrDefaultAsync(d => d.Id == id);
-
-        if (donorDTO == null)
-        {
-            return NotFound();
-        }
-
-        return Ok(donorDTO);
+            };
+            
+            return Ok(donorDTO);
+        
+        
     }
 
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -85,30 +88,31 @@ public class DonorController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<DonorDetailDTO>> CreateAsync(CreateDonorDTO createDonorDto)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
+        
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-        var donor = new Donor
-        {
-            Name = createDonorDto.Name,
-            CityId = createDonorDto.CityId,
-            Address = createDonorDto.Address
-        };
+            var donor = new Donor
+            {
+                Name = createDonorDto.Name,
+                CityId = createDonorDto.CityId,
+                Address = createDonorDto.Address
+            };
 
-        _context.Add(donor);
-        await _context.SaveChangesAsync();
+            await _donorService.CreateDonorAsync(donor);
 
-        var donorEntityDTO = new DonorDetailDTO()
-        {
-            Id = donor.Id,
-            Name = donor.Name,
-            CityId = donor.CityId,
-            Address = donor.Address
-        };
+            var donorEntityDTO = new DonorDetailDTO()
+            {
+                Id = donor.Id,
+                Name = donor.Name,
+                CityId = donor.CityId,
+                Address = donor.Address
+            };
 
-        return Ok(donorEntityDTO);
+            return Ok(donorEntityDTO);
+        
     }
 
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -118,29 +122,27 @@ public class DonorController : ControllerBase
     [HttpPut()] 
     public async Task<IActionResult> EditAsync(int id, EditDonorDTO editDonorDto)
     {
-        if (id != editDonorDto.Id)
-        {
-            return BadRequest("Mismatched Donor DTO");
-            
-        }
+        
+            if (id != editDonorDto.Id)
+            {
+                return BadRequest();
+            }
 
-        var donor = await _context.Donors
-            .FirstOrDefaultAsync(d => d.Id == editDonorDto.Id);
+            var donor = await _donorService.GetDonorAsync(id);
+            if (donor == null)
+            {
+                return NotFound();
+            }
 
-        if (donor == null)
-        {
-            return NotFound();
-            
-        }
+            donor.Name = editDonorDto.Name;
+            donor.CityId = editDonorDto.CityId;
+            donor.Address = editDonorDto.Address;
 
-        donor.Name = editDonorDto.Name;
-        donor.CityId = editDonorDto.CityId;
-        donor.Address = editDonorDto.Address;
+            await _donorService.UpdateDonorAsync(id, donor);
 
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-
+            return NoContent();
+        
+        
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -149,15 +151,17 @@ public class DonorController : ControllerBase
     [HttpDelete()]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var donor = await _context.Donors.FindAsync(id);
+        
+            var donor = await _donorService.GetDonorAsync(id);
+            if (donor == null)
+            {
+                return NotFound();
+            }
 
-        if (donor == null)
-        {
-            return NotFound();
+            await _donorService.DeleteDonorAsync(id);
+
+            return NoContent();
         }
-
-        _context.Donors.Remove(donor);
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
+       
+    
 }

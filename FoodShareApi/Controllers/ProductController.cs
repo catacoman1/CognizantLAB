@@ -1,4 +1,5 @@
 using FoodShareApi.DTO.Product;
+using FoodShareNet.Application.Interfaces;
 using FoodShareNet.Domain.Entities;
 using FoodShareNet.Repository.Data;
 using Microsoft.AspNetCore.Mvc;
@@ -10,52 +11,54 @@ namespace FoodShareApi.Controllers;
 [ApiController]
 public class ProductController : ControllerBase
 {
-    private readonly FoodShareNetDbContext _context;
-    public ProductController(FoodShareNetDbContext context)
+    private readonly IProductService _productService;
+
+    public ProductController(IProductService productService)
     {
-        _context = context;
+        _productService = productService;
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet]
-    public async Task<ActionResult<IList<ProductDTO>>> GetAllAsync()
+    public async Task<ActionResult<List<ProductDTO>>> GetAllAsync()
     {
-        var products = await _context.Products
-            .Select(p => new ProductDTO()
+        
+            var products = await _productService.GetAllProductsAsync();
+            var productDTOs = products.Select(p => new ProductDTO
             {
-              Id = p.Id,
-              Name = p.Name,
-              Image = p.Image
-
-            }).ToListAsync();
-        return Ok(products);
+                Id = p.Id,
+                Name = p.Name,
+                Image = p.Image
+            }).ToList();
+            return Ok(productDTOs);
+        
+        
     }
     
-     [ProducesResponseType(typeof(ProductDTO),
-        StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProductDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet]
     public async Task<ActionResult<ProductDTO>> GetAsync(int? id)
     {
-        var productDTO = await _context.Products
-            .Select(p => new ProductDTO
+        
+            var product = await _productService.GetProductAsync(id ?? 0);
+            if (product == null)
             {
-                Id = p.Id,
-                Name = p.Name,
-                Image = p.Image
-               
-            })
-            .FirstOrDefaultAsync(p => p.Id == id);
+                return NotFound();
+            }
 
-        if (productDTO == null)
-        {
-            return NotFound();
-        }
+            var productDTO = new ProductDTO
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Image = product.Image
+            };
 
-        return Ok(productDTO);
+            return Ok(productDTO);
+        
     }
     [ProducesResponseType(typeof(ProductDetailsDTO),
         StatusCodes.Status201Created)]
@@ -64,29 +67,28 @@ public class ProductController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProductDetailsDTO>> CreateAsync(CreateProductDTO createProductDto)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
+        
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-        var products = new Product 
-        {
-            Name = createProductDto.Name,
-            Image = createProductDto.Image
-        };
+            var product = new Product
+            {
+                Name = createProductDto.Name,
+                Image = createProductDto.Image
+            };
 
-        _context.Add(products);
-        await _context.SaveChangesAsync();
+            await _productService.CreateProductAsync(product);
 
-        var productEntityDTO = new ProductDetailsDTO()
-        {
-            //Id = products.Id,
-            Name = products.Name,
-            Image = products.Image
-            
-        };
+            var productEntityDTO = new ProductDetailsDTO
+            {
+                Name = product.Name,
+                Image = product.Image
+            };
 
-        return Ok(productEntityDTO);
+            return Ok(productEntityDTO);
+
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -96,30 +98,25 @@ public class ProductController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> EditAsync(int id, EditProductDTO editProductDTO)
     {
-        if (id != editProductDTO.Id)
-        {
-            return BadRequest("Mismatched Product DTO");
-            
-        }
+        
+            if (id != editProductDTO.Id)
+            {
+                return BadRequest();
+            }
 
-        var product = await _context.Products
-            .FirstOrDefaultAsync(p => p.Id == editProductDTO.Id);
+            var product = await _productService.GetProductAsync(id);
+            if (product == null)
+            {
+                return NotFound();
+            }
 
-        if (product == null)
-        {
-            return NotFound();
-            
-        }
+            product.Name = editProductDTO.Name;
+            product.Image = editProductDTO.Image;
 
-        product.Name = editProductDTO.Name;
-        product.Image = editProductDTO.Image;
+            await _productService.UpdateProductAsync(id, product);
 
-        await _context.SaveChangesAsync();
-
-        return NoContent();
-
-
-
+            return NoContent();
+        
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -128,16 +125,17 @@ public class ProductController : ControllerBase
     [HttpDelete]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var product = await _context.Products.FindAsync(id);
+        
+            var product = await _productService.GetProductAsync(id);
+            if (product == null)
+            {
+                return NotFound();
+            }
 
-        if (product == null)
-        {
-            return NotFound();
-        }
+            await _productService.DeleteProductAsync(id);
 
-        _context.Products.Remove(product);
-        await _context.SaveChangesAsync();
-        return NoContent();
+            return NoContent();
+        
     }
 
 }

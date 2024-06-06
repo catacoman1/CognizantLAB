@@ -5,6 +5,13 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(o => o.AddPolicy("MyPolicy", builder =>
+{
+    builder.WithOrigins("*")
+        .AllowAnyMethod()
+        .AllowAnyHeader();
+}));
+
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IBeneficiaryService, BeneficiaryService>();
 builder.Services.AddScoped<ICourierService, CourierService>();
@@ -29,6 +36,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseCors();
+
+app.UseCors("MyPolicy");
 
 app.UseHttpsRedirection();
 
